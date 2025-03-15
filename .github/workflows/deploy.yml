@@ -1,0 +1,36 @@
+name: Build and Deploy to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: alien-emblem-453805-f7
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Authorize Docker push
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+      - name: Build and push backend image
+        run: |
+          cd backend
+          docker build -t us-central1-docker.pkg.dev/alien-emblem-453805-f7/jsquares-repo/backend:${{ github.sha }} .
+          docker push us-central1-docker.pkg.dev/alien-emblem-453805-f7/jsquares-repo/backend:${{ github.sha }}
+
+      - name: Deploy backend to Cloud Run
+        run: |
+          gcloud run deploy jsquares-backend \
+            --image us-central1-docker.pkg.dev/alien-emblem-453805-f7/jsquares-repo/backend:${{ github.sha }} \
+            --platform managed \
+            --region us-central1 \
+            --allow-unauthenticated
